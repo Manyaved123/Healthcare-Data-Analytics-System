@@ -1,26 +1,26 @@
 import pandas as pd
-from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
+from sklearn.model_selection import StratifiedKFold, cross_val_score
+
+FEATURES = ['Age', 'BMI', 'BloodPressure', 'Glucose', 'Insulin']
 
 # Load dataset
 data = pd.read_csv("dataset.csv")
-
-# Features and target
-X = data[['Age','BMI','BloodPressure','Glucose','Insulin']]
+X = data[FEATURES]
 y = data['Outcome']
 
-# Split data
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+model = RandomForestClassifier(n_estimators=200, random_state=42)
 
-# Train model
-model = RandomForestClassifier()
-model.fit(X_train, y_train)
+# With only 15 rows, a single 80/20 split tests on just 3 patients, so the
+# accuracy would be mostly luck. 5-fold stratified cross-validation uses
+# every row for testing exactly once and keeps the class balance in each fold.
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+scores = cross_val_score(model, X, y, cv=cv)
+print(f"5-fold cross-validated accuracy: {scores.mean():.0%} (+/- {scores.std():.0%})")
 
-# Predict
-predictions = model.predict(X_test)
-
-# Accuracy
-accuracy = accuracy_score(y_test, predictions)
-
-print("Model Accuracy:", accuracy)
+# Which indicators matter most?
+model.fit(X, y)
+importance = pd.Series(model.feature_importances_, index=FEATURES).sort_values(ascending=False)
+print("\nFeature importance (Random Forest):")
+for name, value in importance.items():
+    print(f"  {name:<14} {value:.2f}")
